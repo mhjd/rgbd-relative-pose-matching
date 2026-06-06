@@ -29,6 +29,7 @@ def find_closest_by_timestamp(reference_timestamp, candidate_data, candidate_ind
         possible_candidates.append(candidate_data[candidate_index - 1])
     if len(possible_candidates) == 0:
         return None, candidate_index, None
+    # Keep the candidate with the smallest timestamp distance from the reference.
     best_candidate = min(possible_candidates, key=lambda candidate_line: abs(get_timestamp(candidate_line) - reference_timestamp))
     time_diff = get_timestamp(best_candidate) - reference_timestamp
     if abs(time_diff) > max_timestamp_diff:
@@ -36,6 +37,12 @@ def find_closest_by_timestamp(reference_timestamp, candidate_data, candidate_ind
     return best_candidate, candidate_index, time_diff
 
 def synchronize_frames(rgb, depth, groundtruth):
+    """
+    Find the closest depth and ground truth for each RGB image.
+    
+    Measurements were not captured at exactly the same time, so timestamps
+    must be associated by temporal proximity.
+    """
     depth_index = 0
     groundtruth_index = 0
     synchronized_frames = []
