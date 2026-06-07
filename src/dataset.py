@@ -8,6 +8,14 @@ def get_timestamp(data_line):
 def get_content(data_line):
     return data_line[1]
 
+def get_rgb_path_from_frame(frame):
+    rgb_line, _, _, _, _ = frame
+    return DATA_PATH + SEQUENCE + get_content(rgb_line)[0]
+
+def get_depth_path_from_frame(frame):
+    _, depth_line, _, _, _ = frame
+    return DATA_PATH + SEQUENCE + get_content(depth_line)[0]
+
 def get_data_content(data_filename):
     data_content = []
     with open(DATA_PATH + SEQUENCE + data_filename , "r") as data_file:
