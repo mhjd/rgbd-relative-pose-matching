@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from dataset import get_rgb_path_from_frame, get_depth_path_from_frame, get_data_content, synchronize_frames, make_frame_pairs
 from geometry import build_3d_2d_correspondences, estimate_pose_pnp, get_groundtruth_motion, get_groundtruth_relative_pose, get_pnp_pose_matrix, get_pose_error
+from experiment_results import FrameGapStatistics, print_frame_gap_statistics_table
 
 FRAME_GAPS = [1, 2, 5, 10, 20, 50, 100]
 
@@ -108,79 +109,28 @@ def inspect_orb_pairs(frame_pairs, frame_gap, orb, matcher, features_cache, dept
             rotation_errors.append(rotation_error)
         else:
             pnp_failed_count += 1
-    result = {
-        "gap": frame_gap,
-        "pairs": len(frame_pairs),
-        "matching_failed": matching_failed_pairs,
-        "mean_keypoints_i": sum(keypoints_i_counts) / len(keypoints_i_counts),
-        "mean_keypoints_j": sum(keypoints_j_counts) / len(keypoints_j_counts),
-        "mean_matches": sum(match_counts) / len(match_counts),
-        "mean_correspondences": sum(correspondence_counts) / len(correspondence_counts),
-        "mean_gt_translation": sum(groundtruth_translation_norms) / len(groundtruth_translation_norms),
-        "mean_gt_rotation": sum(groundtruth_rotation_angles) / len(groundtruth_rotation_angles),
-        "pnp_success": pnp_success_count,
-        "pnp_failed": pnp_failed_count,
-        "mean_pnp_inliers": None,
-        "mean_pnp_inlier_ratio": None,
-        "mean_translation_error": None,
-        "median_translation_error": None,
-        "p95_translation_error": None,
-        "max_translation_error": None,
-        "mean_rotation_error": None,
-        "median_rotation_error": None,
-        "p95_rotation_error": None,
-        "max_rotation_error": None,
-    }
+    result = FrameGapStatistics(frame_gap, len(frame_pairs))
+    result.matching_failed = matching_failed_pairs
+    result.mean_keypoints_i = sum(keypoints_i_counts) / len(keypoints_i_counts)
+    result.mean_keypoints_j = sum(keypoints_j_counts) / len(keypoints_j_counts)
+    result.mean_matches = sum(match_counts) / len(match_counts)
+    result.mean_correspondences = sum(correspondence_counts) / len(correspondence_counts)
+    result.mean_gt_translation = sum(groundtruth_translation_norms) / len(groundtruth_translation_norms)
+    result.mean_gt_rotation = sum(groundtruth_rotation_angles) / len(groundtruth_rotation_angles)
+    result.pnp_success = pnp_success_count
+    result.pnp_failed = pnp_failed_count
     if len(pnp_inlier_counts) > 0:
-        result["mean_pnp_inliers"] = sum(pnp_inlier_counts) / len(pnp_inlier_counts)
-        result["mean_pnp_inlier_ratio"] = sum(pnp_inlier_ratios) / len(pnp_inlier_ratios)
-        result["mean_translation_error"] = sum(translation_errors) / len(translation_errors)
-        result["median_translation_error"] = np.median(translation_errors)
-        result["p95_translation_error"] = np.percentile(translation_errors, 95)
-        result["max_translation_error"] = max(translation_errors)
-        result["mean_rotation_error"] = sum(rotation_errors) / len(rotation_errors)
-        result["median_rotation_error"] = np.median(rotation_errors)
-        result["p95_rotation_error"] = np.percentile(rotation_errors, 95)
-        result["max_rotation_error"] = max(rotation_errors)
+        result.mean_pnp_inliers = sum(pnp_inlier_counts) / len(pnp_inlier_counts)
+        result.mean_pnp_inlier_ratio = sum(pnp_inlier_ratios) / len(pnp_inlier_ratios)
+        result.mean_translation_error = sum(translation_errors) / len(translation_errors)
+        result.median_translation_error = np.median(translation_errors)
+        result.p95_translation_error = np.percentile(translation_errors, 95)
+        result.max_translation_error = max(translation_errors)
+        result.mean_rotation_error = sum(rotation_errors) / len(rotation_errors)
+        result.median_rotation_error = np.median(rotation_errors)
+        result.p95_rotation_error = np.percentile(rotation_errors, 95)
+        result.max_rotation_error = max(rotation_errors)
     return result
-
-def format_float(value, decimals):
-    if value is None:
-        return "NA"
-    return f"{value:.{decimals}f}"
-
-def print_results_table(results):
-    print(
-        f"{'gap':>3} | "
-        f"{'pairs':>5} | "
-        f"{'gt_t':>5} | "
-        f"{'gt_r':>5} | "
-        f"{'matches':>7} | "
-        f"{'corr':>6} | "
-        f"{'pnp_ok':>6} | "
-        f"{'pnp_fail':>8} | "
-        f"{'inl_ratio':>9} | "
-        f"{'t_med':>5} | "
-        f"{'t_p95':>6} | "
-        f"{'r_med':>5} | "
-        f"{'r_p95':>6}"
-    )
-    for result in results:
-        print(
-            f"{result['gap']:>3} | "
-            f"{result['pairs']:>5} | "
-            f"{format_float(result['mean_gt_translation'], 3):>5} | "
-            f"{format_float(result['mean_gt_rotation'], 2):>5} | "
-            f"{format_float(result['mean_matches'], 1):>7} | "
-            f"{format_float(result['mean_correspondences'], 1):>6} | "
-            f"{result['pnp_success']:>6} | "
-            f"{result['pnp_failed']:>8} | "
-            f"{format_float(result['mean_pnp_inlier_ratio'], 3):>9} | "
-            f"{format_float(result['median_translation_error'], 3):>5} | "
-            f"{format_float(result['p95_translation_error'], 3):>6} | "
-            f"{format_float(result['median_rotation_error'], 2):>5} | "
-            f"{format_float(result['p95_rotation_error'], 2):>6}"
-        )
 
 rgb = get_data_content("rgb.txt")
 depth = get_data_content("depth.txt")
@@ -197,4 +147,4 @@ for frame_gap in FRAME_GAPS:
     results.append(inspect_orb_pairs(frame_pairs, frame_gap, orb, matcher, features_cache, depth_cache))
 
 print(f"Synchronized frames : {len(synchronized_frames)}")
-print_results_table(results)
+print_frame_gap_statistics_table(results)
