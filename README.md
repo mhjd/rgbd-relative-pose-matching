@@ -40,3 +40,13 @@ The experiment varies the temporal gap between paired frames. A small gap corres
 For each frame gap, ORB and SuperPoint + LightGlue are evaluated on the same frame pairs. Both methods use the same depth maps, the same camera intrinsics, the same PnP-RANSAC backend, and the same evaluation metrics. This keeps the geometric part of the pipeline fixed and makes the comparison focus on the visual correspondences produced by each method.
 
 The analysis will report matching statistics, PnP success and failure cases, relative pose error, and runtime. This is intended to show not only which method produces more matches, but which method produces matches that remain useful for camera motion estimation as the frame gap increases.
+
+## Current Status
+
+This repository is a work in progress.
+
+At this stage, the project implements the data preparation and ORB baseline parts of the study. RGB, depth, and ground-truth measurements are synchronized by timestamp. Frame pairs are generated for several temporal gaps. ORB matches are converted into 3D-to-2D correspondences using valid depth, and PnP-RANSAC is used to estimate relative camera motion.
+
+The current metrics report matching statistics, PnP success and failure counts, inlier ratios, ground-truth motion magnitude, and pose errors for the ORB baseline.
+
+The learned matching pipeline based on SuperPoint + LightGlue is planned next. The goal is to evaluate it with the same frame pairs, depth data, PnP backend, and metrics used for ORB.
