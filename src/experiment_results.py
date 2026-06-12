@@ -27,6 +27,10 @@ def format_float(value, decimals):
         return "NA"
     return f"{value:.{decimals}f}"
 
+def print_experiment_summary(synchronized_frames, results):
+    print(f"Synchronized frames : {len(synchronized_frames)}")
+    print_frame_gap_statistics_table(results)
+
 def print_frame_gap_statistics_table(results):
     print(
         f"{'gap':>3} | "

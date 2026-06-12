@@ -1,3 +1,5 @@
+import cv2
+
 DATA_PATH = "data/"
 SEQUENCE = "rgbd_dataset_freiburg1_xyz/"
 MAX_RGB_DEPTH_TIMESTAMP_DIFF = 0.02
@@ -15,6 +17,16 @@ def get_rgb_path_from_frame(frame):
 def get_depth_path_from_frame(frame):
     _, depth_line, _, _, _ = frame
     return DATA_PATH + SEQUENCE + get_content(depth_line)[0]
+
+def get_depth_image(frame, depth_cache):
+    depth_path = get_depth_path_from_frame(frame)
+    if depth_path in depth_cache:
+        return depth_cache[depth_path]
+    depth_image = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED)
+    if depth_image is None:
+        raise FileNotFoundError(f"Could not read depth image: {depth_path}")
+    depth_cache[depth_path] = depth_image
+    return depth_image
 
 def get_data_content(data_filename):
     data_content = []
@@ -68,6 +80,13 @@ def synchronize_frames(rgb, depth, groundtruth):
             continue
         synchronized_frames.append((rgb_line, depth_line, groundtruth_line, rgb_depth_time_diff, rgb_groundtruth_time_diff))
     return synchronized_frames, dropped_without_depth, dropped_without_groundtruth
+
+def get_synchronized_frames():
+    rgb = get_data_content("rgb.txt")
+    depth = get_data_content("depth.txt")
+    groundtruth = get_data_content("groundtruth.txt")
+    synchronized_frames, _, _ = synchronize_frames(rgb, depth, groundtruth)
+    return synchronized_frames
 
 def make_frame_pairs(synchronized_frames, frame_gap):
     frame_pairs = []
