@@ -35,23 +35,15 @@ def build_3d_2d_correspondences(matches, keypoints_i, keypoints_j, depth_image):
     PnP needs 3D points from frame i, built with frame-i depth, and their matched
     2D observations in frame j.
     """
-    object_points = []
-    image_points = []
-    for feature_match in matches:
-        u, v = keypoints_i[feature_match.queryIdx].pt
-        u = int(round(u))
-        v = int(round(v))
-        if v < 0 or v >= depth_image.shape[0] or u < 0 or u >= depth_image.shape[1]:
-            # invalid keypoint outside the depth image
-            continue
-        # NumPy images are indexed as [row, column], so pixel (u, v) is depth_image[v, u].
-        depth_value = depth_image[v, u]
-        if depth_value == 0:
-            # invalid keypoint because depth is missing
-            continue
-        object_points.append(backproject_pixel_to_3d(u, v, depth_value))
-        image_points.append(keypoints_j[feature_match.trainIdx].pt)
-    return object_points, image_points
+    points_i = np.array(
+        [keypoints_i[feature_match.queryIdx].pt for feature_match in matches],
+        dtype=np.float32,
+    )
+    points_j = np.array(
+        [keypoints_j[feature_match.trainIdx].pt for feature_match in matches],
+        dtype=np.float32,
+    )
+    return build_3d_2d_correspondences_from_pixels(points_i, points_j, depth_image)
 
 def build_3d_2d_correspondences_from_pixels(points_i, points_j, depth_image):
     """
