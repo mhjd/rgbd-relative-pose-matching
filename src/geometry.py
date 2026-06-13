@@ -29,6 +29,12 @@ def backproject_pixel_to_3d(u, v, depth_value):
     return (x, y, z)
 
 def build_3d_2d_correspondences(matches, keypoints_i, keypoints_j, depth_image):
+    """
+    Build PnP correspondences from ORB/OpenCV matches.
+
+    PnP needs 3D points from frame i, built with frame-i depth, and their matched
+    2D observations in frame j.
+    """
     object_points = []
     image_points = []
     for feature_match in matches:
@@ -36,13 +42,40 @@ def build_3d_2d_correspondences(matches, keypoints_i, keypoints_j, depth_image):
         u = int(round(u))
         v = int(round(v))
         if v < 0 or v >= depth_image.shape[0] or u < 0 or u >= depth_image.shape[1]:
-            # invalid keypoint
+            # invalid keypoint outside the depth image
             continue
+        # NumPy images are indexed as [row, column], so pixel (u, v) is depth_image[v, u].
         depth_value = depth_image[v, u]
         if depth_value == 0:
+            # invalid keypoint because depth is missing
             continue
         object_points.append(backproject_pixel_to_3d(u, v, depth_value))
         image_points.append(keypoints_j[feature_match.trainIdx].pt)
+    return object_points, image_points
+
+def build_3d_2d_correspondences_from_pixels(points_i, points_j, depth_image):
+    """
+    Build PnP correspondences from SuperPoint + LightGlue matches.
+
+    PnP needs 3D points from frame i, built with frame-i depth, and their matched
+    2D observations in frame j.
+    """
+    object_points = []
+    image_points = []
+    for point_i, point_j in zip(points_i, points_j):
+        u, v = point_i
+        u = int(round(float(u)))
+        v = int(round(float(v)))
+        if v < 0 or v >= depth_image.shape[0] or u < 0 or u >= depth_image.shape[1]:
+            # invalid keypoint outside the depth image
+            continue
+        # NumPy images are indexed as [row, column], so pixel (u, v) is depth_image[v, u].
+        depth_value = depth_image[v, u]
+        if depth_value == 0:
+            # invalid keypoint because depth is missing
+            continue
+        object_points.append(backproject_pixel_to_3d(u, v, depth_value))
+        image_points.append((float(point_j[0]), float(point_j[1])))
     return object_points, image_points
 
 def estimate_pose_pnp(object_points, image_points):

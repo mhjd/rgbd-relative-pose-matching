@@ -13,10 +13,14 @@ from geometry import (
 FRAME_GAPS = [1, 2, 5, 10, 20, 50, 100]
 
 
-def evaluate_frame_gaps(synchronized_frames, match_pair, frame_gaps=FRAME_GAPS):
+def evaluate_frame_gaps(synchronized_frames, match_pair, frame_gaps=FRAME_GAPS, max_pairs_per_gap=None, show_progress=False):
     results = []
     for frame_gap in frame_gaps:
         frame_pairs = make_frame_pairs(synchronized_frames, frame_gap)
+        if max_pairs_per_gap is not None:
+            frame_pairs = frame_pairs[:max_pairs_per_gap]
+        if show_progress:
+            print(f"Evaluating gap {frame_gap} with {len(frame_pairs)} pairs")
         results.append(evaluate_frame_pairs(frame_pairs, frame_gap, match_pair))
     return results
 
