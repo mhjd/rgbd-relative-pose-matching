@@ -60,22 +60,38 @@ def build_3d_2d_correspondences_from_pixels(points_i, points_j, depth_image):
     PnP needs 3D points from frame i, built with frame-i depth, and their matched
     2D observations in frame j.
     """
-    object_points = []
-    image_points = []
-    for point_i, point_j in zip(points_i, points_j):
-        u, v = point_i
-        u = int(round(float(u)))
-        v = int(round(float(v)))
-        if v < 0 or v >= depth_image.shape[0] or u < 0 or u >= depth_image.shape[1]:
-            # invalid keypoint outside the depth image
-            continue
-        # NumPy images are indexed as [row, column], so pixel (u, v) is depth_image[v, u].
-        depth_value = depth_image[v, u]
-        if depth_value == 0:
-            # invalid keypoint because depth is missing
-            continue
-        object_points.append(backproject_pixel_to_3d(u, v, depth_value))
-        image_points.append((float(point_j[0]), float(point_j[1])))
+    points_i = np.asarray(points_i.cpu() if hasattr(points_i, "cpu") else points_i)
+    points_j = np.asarray(points_j.cpu() if hasattr(points_j, "cpu") else points_j)
+    if len(points_i) == 0:
+        return [], []
+
+    rounded_points_i = np.rint(points_i).astype(np.int64)
+    u = rounded_points_i[:, 0]
+    v = rounded_points_i[:, 1]
+
+    valid_pixels = (
+        (v >= 0)
+        & (v < depth_image.shape[0])
+        & (u >= 0)
+        & (u < depth_image.shape[1])
+    )
+    u = u[valid_pixels]
+    v = v[valid_pixels]
+    points_j = points_j[valid_pixels]
+
+    # NumPy images are indexed as [row, column], so pixel (u, v) is depth_image[v, u].
+    depth_values = depth_image[v, u]
+    valid_depth = depth_values != 0
+    u = u[valid_depth]
+    v = v[valid_depth]
+    depth_values = depth_values[valid_depth]
+    points_j = points_j[valid_depth]
+
+    z = depth_values.astype(np.float32) / DEPTH_SCALE
+    x = (u.astype(np.float32) - CX) * z / FX
+    y = (v.astype(np.float32) - CY) * z / FY
+    object_points = np.stack([x, y, z], axis=1)
+    image_points = points_j.astype(np.float32)
     return object_points, image_points
 
 def estimate_pose_pnp(object_points, image_points):
