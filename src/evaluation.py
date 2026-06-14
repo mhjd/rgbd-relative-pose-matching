@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 
 from dataset import make_frame_pairs
@@ -11,6 +13,17 @@ from geometry import (
 )
 
 FRAME_GAPS = [1, 2, 5, 10, 20, 50, 100]
+
+
+@dataclass
+class MatchResult:
+    keypoints_i_count: int
+    keypoints_j_count: int
+    match_count: int
+    correspondence_count: int
+    object_points: object
+    image_points: object
+    best_match_distance: float | None
 
 
 def evaluate_frame_gaps(synchronized_frames, match_pair, frame_gaps=FRAME_GAPS, max_pairs_per_gap=None, show_progress=False):
@@ -47,18 +60,18 @@ def evaluate_frame_pairs(frame_pairs, frame_gap, match_pair):
         groundtruth_translation_norms.append(translation_norm)
         groundtruth_rotation_angles.append(rotation_angle)
         match_result = match_pair(frame_pair)
-        keypoints_i_counts.append(match_result["keypoints_i_count"])
-        keypoints_j_counts.append(match_result["keypoints_j_count"])
-        match_counts.append(match_result["match_count"])
-        correspondence_counts.append(match_result["correspondence_count"])
-        if match_result["best_match_distance"] is None:
+        keypoints_i_counts.append(match_result.keypoints_i_count)
+        keypoints_j_counts.append(match_result.keypoints_j_count)
+        match_counts.append(match_result.match_count)
+        correspondence_counts.append(match_result.correspondence_count)
+        if match_result.best_match_distance is None:
             matching_failed_pairs += 1
-        success, rvec, tvec, inliers = estimate_pose_pnp(match_result["object_points"], match_result["image_points"])
+        success, rvec, tvec, inliers = estimate_pose_pnp(match_result.object_points, match_result.image_points)
         if success:
             inlier_count = len(inliers)
             pnp_success_count += 1
             pnp_inlier_counts.append(inlier_count)
-            pnp_inlier_ratios.append(inlier_count / match_result["correspondence_count"])
+            pnp_inlier_ratios.append(inlier_count / match_result.correspondence_count)
             estimated_pose = get_pnp_pose_matrix(rvec, tvec)
             groundtruth_pose = get_groundtruth_relative_pose(frame_pair)
             translation_error, rotation_error = get_pose_error(estimated_pose, groundtruth_pose)
