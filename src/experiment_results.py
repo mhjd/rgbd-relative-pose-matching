@@ -47,7 +47,8 @@ def print_frame_gap_statistics_table(results):
         f"{'r_med':>5} | "
         f"{'r_p95':>6}"
     )
-    for result in results:
+    for result_index, result in enumerate(results):
+        line_end = "\n\n" if result_index == len(results) - 1 else "\n"
         print(
             f"{result.gap:>3} | "
             f"{result.pairs:>5} | "
@@ -61,5 +62,6 @@ def print_frame_gap_statistics_table(results):
             f"{format_float(result.median_translation_error, 3):>5} | "
             f"{format_float(result.p95_translation_error, 3):>6} | "
             f"{format_float(result.median_rotation_error, 2):>5} | "
-            f"{format_float(result.p95_rotation_error, 2):>6}"
+            f"{format_float(result.p95_rotation_error, 2):>6}",
+            end=line_end,
         )

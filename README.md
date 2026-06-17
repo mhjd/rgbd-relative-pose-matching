@@ -1,4 +1,4 @@
-# RGB-D Relative Pose Matching
+# RGB-D Relative Pose: ORB vs SuperPoint + LightGlue
 
 This project compares classical and learned feature matching methods for estimating camera motion from RGB-D image pairs. It uses ORB as a classical baseline and SuperPoint + LightGlue as a learned matching pipeline, with the goal of studying how both methods behave when the motion between frames increases.
 
@@ -41,12 +41,32 @@ For each frame gap, ORB and SuperPoint + LightGlue are evaluated on the same fra
 
 The analysis will report matching statistics, PnP success and failure cases, relative pose error, and runtime. This is intended to show not only which method produces more matches, but which method produces matches that remain useful for camera motion estimation as the frame gap increases.
 
+## Preliminary Results
+
+The table reports the current full-sequence results on `freiburg1_xyz`, using SuperPoint + LightGlue with `max_num_keypoints=512`.
+
+| Gap | Method | PnP failures | Median rotation error | 95th percentile rotation error |
+|---:|---|---:|---:|---:|
+| 1 | ORB | 0 | 0.30° | 0.73° |
+| 1 | SuperPoint + LightGlue | 0 | 0.26° | 0.69° |
+| 10 | ORB | 1 | 0.84° | 4.66° |
+| 10 | SuperPoint + LightGlue | 0 | 0.62° | 1.71° |
+| 20 | ORB | 26 | 1.24° | 125.87° |
+| 20 | SuperPoint + LightGlue | 0 | 0.89° | 2.25° |
+| 50 | ORB | 160 | 1.78° | 147.86° |
+| 50 | SuperPoint + LightGlue | 20 | 1.31° | 6.11° |
+| 100 | ORB | 38 | 1.00° | 113.14° |
+| 100 | SuperPoint + LightGlue | 0 | 0.77° | 2.36° |
+
+For small frame gaps, both methods estimate the relative pose accurately. At larger gaps, ORB often still has a low median error, but some pairs produce very large rotation errors (high 95th percentile error) or fail to produce a valid relative pose estimate (PnP failure).
+SuperPoint + LightGlue keeps the 95th percentile rotation error below 7° on all tested gaps, while ORB exceeds 100° at gaps 20, 50, and 100. Nevertheless, this robustness comes with a significant runtime cost. In the instrumented pipeline, the LightGlue matching calls alone took about 53 minutes, while the measured ORB extraction and matching stages took only a few seconds.
+
 ## Current Status
 
 This repository is a work in progress.
 
-At this stage, the project implements the data preparation and ORB baseline parts of the study. RGB, depth, and ground-truth measurements are synchronized by timestamp. Frame pairs are generated for several temporal gaps. ORB matches are converted into 3D-to-2D correspondences using valid depth, and PnP-RANSAC is used to estimate relative camera motion.
+At this stage, the project implements the full ORB vs SuperPoint + LightGlue comparison pipeline: timestamp synchronization, frame-pair generation across temporal gaps, RGB-D correspondence construction, PnP-RANSAC pose estimation, and comparison with ground truth.
 
-The current metrics report matching statistics, PnP success and failure counts, inlier ratios, ground-truth motion magnitude, and pose errors for the ORB baseline.
+The current metrics report matching statistics, valid RGB-D correspondence counts, PnP success and failure counts, inlier ratios, ground-truth motion magnitude, pose errors, and runtime for both methods.
 
-The learned matching pipeline based on SuperPoint + LightGlue is planned next. The goal is to evaluate it with the same frame pairs, depth data, PnP backend, and metrics used for ORB.
+The next steps are to turn the numerical results into plots, add qualitative match visualizations, and test whether the conclusions hold on additional TUM RGB-D sequences.

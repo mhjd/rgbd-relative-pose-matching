@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import time
 
 import numpy as np
 
@@ -34,7 +35,11 @@ def evaluate_frame_gaps(synchronized_frames, match_pair, frame_gaps=FRAME_GAPS, 
             frame_pairs = frame_pairs[:max_pairs_per_gap]
         if show_progress:
             print(f"Evaluating gap {frame_gap} with {len(frame_pairs)} pairs")
+        start_time = time.perf_counter()
         results.append(evaluate_frame_pairs(frame_pairs, frame_gap, match_pair))
+        if show_progress:
+            elapsed_time = time.perf_counter() - start_time
+            print(f"Finished gap {frame_gap} in {elapsed_time:.2f}s\n")
     return results
 
 
