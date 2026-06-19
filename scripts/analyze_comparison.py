@@ -3,8 +3,16 @@ sys.path.append("src")
 
 import argparse
 import json
+import os
 from pathlib import Path
+from tempfile import gettempdir
 
+cache_dir = Path(gettempdir()) / "rgbd-relative-pose-matching-cache"
+os.environ.setdefault("MPLCONFIGDIR", str(cache_dir / "matplotlib"))
+os.environ.setdefault("XDG_CACHE_HOME", str(cache_dir))
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 
 from experiment_results import FrameGapStatistics, format_float
@@ -127,6 +135,108 @@ def write_summary(path, summary):
         output_file.write("\n")
 
 
+def get_method_series(method_results, metric_name):
+    series = {}
+    for method_name, results in method_results:
+        series[method_name] = {
+            "gaps": [result.gap for result in results],
+            "values": [getattr(result, metric_name) for result in results],
+        }
+    return series
+
+
+def plot_rotation_metric_vs_gap(method_results, metric_name, ylabel, title, filename):
+    colors = {
+        "ORB": "#4C78A8",
+        "LightGlue": "#F58518",
+    }
+    metric_series = get_method_series(method_results, metric_name)
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    for method_name, series in metric_series.items():
+        ax.plot(
+            series["gaps"],
+            series["values"],
+            marker="o",
+            linewidth=2,
+            color=colors.get(method_name),
+            label=method_name,
+        )
+    first_method = next(iter(metric_series))
+    ax.set_xscale("log")
+    ax.set_xticks(metric_series[first_method]["gaps"])
+    ax.set_xticklabels([str(gap) for gap in metric_series[first_method]["gaps"]])
+    ax.set_xlabel("Frame gap")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.grid(True, alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    figure_path = output_dir / filename
+    fig.savefig(figure_path, dpi=200)
+    plt.close(fig)
+    return figure_path
+
+
+def plot_rotation_error_figures(method_results, output_dir):
+    return [
+        plot_rotation_metric_vs_gap(
+            method_results,
+            "median_rotation_error",
+            "Median rotation error (deg)",
+            "Median rotation error under increasing frame gap",
+            "median_rotation_error_vs_gap.png",
+        ),
+        plot_rotation_metric_vs_gap(
+            method_results,
+            "mean_rotation_error",
+            "Mean rotation error (deg)",
+            "Mean rotation error under increasing frame gap",
+            "mean_rotation_error_vs_gap.png",
+        ),
+        plot_rotation_metric_vs_gap(
+            method_results,
+            "p95_rotation_error",
+            "95th percentile rotation error (deg)",
+            "95th percentile rotation error under increasing frame gap",
+            "p95_rotation_error_vs_gap.png",
+        ),
+    ]
+
+
+def plot_pnp_failures_vs_gap(method_results, output_dir):
+    colors = {
+        "ORB": "#4C78A8",
+        "LightGlue": "#F58518",
+    }
+    fig, ax = plt.subplots(figsize=(8, 4))
+    gap_positions = np.arange(len(method_results[0][1]))
+    bar_width = 0.35
+
+    for method_index, (method_name, results) in enumerate(method_results):
+        offsets = gap_positions + (method_index - 0.5) * bar_width
+        ax.bar(
+            offsets,
+            [result.pnp_failed for result in results],
+            width=bar_width,
+            color=colors.get(method_name),
+            label=method_name,
+        )
+
+    ax.set_xticks(gap_positions)
+    ax.set_xticklabels([str(result.gap) for result in method_results[0][1]])
+    ax.set_xlabel("Frame gap")
+    ax.set_ylabel("PnP failures")
+    ax.set_title("PnP failures under increasing frame gap")
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+    figure_path = output_dir / "pnp_failures_vs_gap.png"
+    fig.savefig(figure_path, dpi=200)
+    plt.close(fig)
+    return figure_path
+
+
 def print_comparison_table(method_results, title=None):
     if title is not None:
         print(title)
@@ -217,9 +327,15 @@ metadata = load_json(metadata_path)
 records = load_jsonl(pairs_path)
 method_results = build_method_results(records)
 write_summary(summary_path, statistics_to_json(method_results))
+rotation_figure_paths = plot_rotation_error_figures(method_results, output_dir)
+pnp_failures_figure_path = plot_pnp_failures_vs_gap(method_results, output_dir)
 
 print(f"Analyzing output directory : {output_dir}")
 print(f"Pair records : {len(records)}")
 print(f"Summary file : {summary_path}\n")
+for figure_path in rotation_figure_paths:
+    print(f"Rotation error figure : {figure_path}")
+print(f"PnP failures figure : {pnp_failures_figure_path}")
+print()
 print_comparison_table(method_results, title="Comparison")
 print_timing_summary(metadata)

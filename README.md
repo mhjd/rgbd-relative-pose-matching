@@ -41,25 +41,33 @@ For each frame gap, ORB and SuperPoint + LightGlue are evaluated on the same fra
 
 The analysis will report matching statistics, PnP success and failure cases, relative pose error, and runtime. This is intended to show not only which method produces more matches, but which method produces matches that remain useful for camera motion estimation as the frame gap increases.
 
-## Preliminary Results
+## Results
 
-The table reports the current full-sequence results on `freiburg1_xyz`, using SuperPoint + LightGlue with `max_num_keypoints=512`.
+The current evaluation uses the full `freiburg1_xyz` sequence, with the same frame pairs, depth maps, PnP-RANSAC backend, and pose-error metrics for both methods.
 
-| Gap | Method | PnP failures | Median rotation error | 95th percentile rotation error |
-|---:|---|---:|---:|---:|
-| 1 | ORB | 0 | 0.30° | 0.73° |
-| 1 | SuperPoint + LightGlue | 0 | 0.26° | 0.69° |
-| 10 | ORB | 1 | 0.84° | 4.66° |
-| 10 | SuperPoint + LightGlue | 0 | 0.62° | 1.71° |
-| 20 | ORB | 26 | 1.24° | 125.87° |
-| 20 | SuperPoint + LightGlue | 0 | 0.89° | 2.25° |
-| 50 | ORB | 160 | 1.78° | 147.86° |
-| 50 | SuperPoint + LightGlue | 20 | 1.31° | 6.11° |
-| 100 | ORB | 38 | 1.00° | 113.14° |
-| 100 | SuperPoint + LightGlue | 0 | 0.77° | 2.36° |
+The main observation is that SuperPoint + LightGlue is not much more accurate than ORB on easy pairs, but it is much more robust when the frame gap increases.
 
-For small frame gaps, both methods estimate the relative pose accurately. At larger gaps, ORB often still has a low median error, but some pairs produce very large rotation errors (high 95th percentile error) or fail to produce a valid relative pose estimate (PnP failure).
-SuperPoint + LightGlue keeps the 95th percentile rotation error below 7° on all tested gaps, while ORB exceeds 100° at gaps 20, 50, and 100. Nevertheless, this robustness comes with a significant runtime cost. In the instrumented pipeline, the LightGlue matching calls alone took about 53 minutes, while the measured ORB extraction and matching stages took only a few seconds.
+For small frame gaps, both methods estimate the relative pose accurately. At larger gaps, ORB often still has a low median error.
+
+![Median rotation error vs frame gap](outputs/comparison_2026-06-18_12-48-30/median_rotation_error_vs_gap.png)
+
+However, some ORB pairs produce very large rotation errors, visible through the sharp increase in the 95th percentile error. SuperPoint + LightGlue keeps this 95th percentile below 7° on all tested gaps, while ORB exceeds 100° at gaps 20, 50, and 100.
+
+![95th percentile rotation error vs frame gap](outputs/comparison_2026-06-18_12-48-30/p95_rotation_error_vs_gap.png)
+
+Gap 50 is harder than gap 100 on this sequence because the actual ground-truth motion is larger on average at gap 50. In other words, the frame gap controls how far apart the frames are in time, but the camera motion also depends on what happens in that part of the trajectory.
+
+The mean rotation error shows that these catastrophic ORB estimates are not negligible and have a visible impact on average performance once the frame gap increases.
+
+![Mean rotation error vs frame gap](outputs/comparison_2026-06-18_12-48-30/mean_rotation_error_vs_gap.png)
+
+The PnP failure counts show the same trend from another angle. ORB fails to produce a pose on many large-gap pairs, especially at gap 50, while SuperPoint + LightGlue fails much less often.
+
+![PnP failures vs frame gap](outputs/comparison_2026-06-18_12-48-30/pnp_failures_vs_gap.png)
+
+This only counts pairs where PnP returned no pose at all, even though some pairs where PnP does return a pose are still unusable because their rotation error is extremely large. We keep these cases separate to avoid choosing an arbitrary angle threshold for marking a returned pose as failed.
+
+This robustness comes with a significant runtime cost. In the instrumented run, ORB extraction and matching took about 5.5 seconds in total, while SuperPoint extraction took about 55 seconds and LightGlue matching alone took about 59 minutes. This makes SuperPoint + LightGlue much more robust on this sequence, but also far more expensive to run.
 
 ## Current Status
 
