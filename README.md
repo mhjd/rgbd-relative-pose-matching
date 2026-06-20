@@ -2,6 +2,10 @@
 
 This project compares classical and learned feature matching methods for estimating camera motion from RGB-D image pairs. It uses ORB as a classical baseline and SuperPoint + LightGlue as a learned matching pipeline, with the goal of studying how both methods behave when the motion between frames increases.
 
+![RGB-D relative pose overview](outputs/comparison_2026-06-18_12-48-30/match_overview.png)
+
+*Matched points between two RGB frames. These 2D correspondences are later combined with depth from the first frame to estimate the relative camera pose.*
+
 ## Goal
 
 Estimating the motion of a camera between two observations is a common geometric task in computer vision and robotics. It is useful whenever a system needs to understand how its viewpoint changed while observing a scene.
@@ -14,38 +18,35 @@ To estimate this motion, the system first needs to find visual correspondences b
 
 This project compares a classical correspondence method, ORB, with a learned correspondence pipeline, SuperPoint and LightGlue. ORB is a hand-designed feature detector and descriptor. SuperPoint and LightGlue use neural networks to detect, describe, and match image points. Both methods are evaluated on the same frame pairs and with the same geometric pose-estimation backend, so that the comparison focuses on the usefulness of the visual correspondences.
 
-## Pipeline
+## Evaluation Method
 
-For each pair of frames, the project follows the same geometric pipeline for both matching methods.
+Both matchers are evaluated inside the same RGB-D relative pose pipeline. For each pair, the matcher produces 2D correspondences between the RGB images. The depth map from the first frame converts the matched pixels in frame `i` into 3D points. These 3D points are paired with their matched 2D locations in frame `j`, and PnP-RANSAC estimates the relative pose from frame `i` to frame `j`.
 
-```
-RGB-D frame i and RGB frame j
--> feature matching
--> convert matched pixels from frame i into 3D points using depth
--> 3D-to-2D PnP-RANSAC
--> estimated camera motion from i to j
--> comparison with ground truth
-```
+![Evaluation pipeline](assets/evaluation_pipeline.svg)
 
-Feature matching first produces correspondences between points in the two color images. The depth map from the first frame is then used to convert matched 2D pixels from frame `i` into 3D points. The corresponding points in frame `j` remain 2D image observations.
-
-PnP-RANSAC is the geometric step that estimates the camera motion from these 3D-to-2D correspondences. The PnP part estimates the camera pose that best projects the 3D points from frame `i` onto their matched 2D locations in frame `j`. The RANSAC part makes this estimation robust by rejecting matches that are not geometrically consistent with the dominant camera motion.
-
-This design avoids requiring valid depth in both frames for every match. It also keeps the geometric backend identical for ORB and SuperPoint + LightGlue, which makes the comparison focus on the matching stage.
-
-## Experimental Design
+This keeps the depth maps, camera intrinsics, PnP-RANSAC backend, and pose-error metrics identical for both methods, so the comparison focuses on the quality of the visual correspondences.
 
 The experiment varies the temporal gap between paired frames. A small gap corresponds to a small camera motion, while a larger gap usually creates a harder matching and pose-estimation problem.
 
-For each frame gap, ORB and SuperPoint + LightGlue are evaluated on the same frame pairs. Both methods use the same depth maps, the same camera intrinsics, the same PnP-RANSAC backend, and the same evaluation metrics. This keeps the geometric part of the pipeline fixed and makes the comparison focus on the visual correspondences produced by each method.
-
-The analysis will report matching statistics, PnP success and failure cases, relative pose error, and runtime. This is intended to show not only which method produces more matches, but which method produces matches that remain useful for camera motion estimation as the frame gap increases.
+For each frame gap, ORB and SuperPoint + LightGlue are evaluated on the same frame pairs. This is intended to show not only which method produces more matches, but which method produces matches that remain useful for camera motion estimation as the frame gap increases.
 
 ## Results
 
 The current evaluation uses the full `freiburg1_xyz` sequence, with the same frame pairs, depth maps, PnP-RANSAC backend, and pose-error metrics for both methods.
 
 The main observation is that SuperPoint + LightGlue is not much more accurate than ORB on easy pairs, but it is much more robust when the frame gap increases.
+
+The example below shows one large-gap pair where ORB returns a pose with a 179.90° rotation error, while SuperPoint + LightGlue estimates the same pair with a 0.47° rotation error.
+
+![ORB matching example](outputs/comparison_2026-06-18_12-48-30/orb_matches_gap20_pair319.png)
+
+*ORB matches on a difficult gap-20 pair. The estimated pose has a 179.90° rotation error.*
+
+![SuperPoint + LightGlue matching example](outputs/comparison_2026-06-18_12-48-30/lightglue_matches_gap20_pair319.png)
+
+*SuperPoint + LightGlue matches for that pair. The estimated pose has a 0.47° rotation error.*
+
+Visually, ORB produces many matches in cluttered regions of the desk, and several correspondences appear to connect different parts of the scene rather than stable physical points. In contrast, SuperPoint + LightGlue produces clearer matches on structured objects that are visible in both views, such as the monitors and the keyboard. The keyboard is especially visible because LightGlue finds many consistent matches there, while ORB finds none.
 
 For small frame gaps, both methods estimate the relative pose accurately. At larger gaps, ORB often still has a low median error.
 
@@ -67,14 +68,32 @@ The PnP failure counts show the same trend from another angle. ORB fails to prod
 
 This only counts pairs where PnP returned no pose at all, even though some pairs where PnP does return a pose are still unusable because their rotation error is extremely large. We keep these cases separate to avoid choosing an arbitrary angle threshold for marking a returned pose as failed.
 
-This robustness comes with a significant runtime cost. In the instrumented run, ORB extraction and matching took about 5.5 seconds in total, while SuperPoint extraction took about 55 seconds and LightGlue matching alone took about 59 minutes. This makes SuperPoint + LightGlue much more robust on this sequence, but also far more expensive to run.
+This robustness comes with a significant runtime cost. In the run used for the timing measurements, measured on a MacBook Air with M4 chip using PyTorch MPS, ORB extraction and matching took about 5.5 seconds in total, while SuperPoint extraction took about 55 seconds and LightGlue matching alone took about 59 minutes. Across the 5,398 evaluated pairs, this corresponds to about 1 ms per pair for ORB extraction and matching, compared with about 0.67 s per pair for SuperPoint extraction and LightGlue matching. This makes SuperPoint + LightGlue much more robust on this sequence, but also far more expensive to run.
 
-## Current Status
+## Reproducing the results
 
-This repository is a work in progress.
+The TUM RGB-D sequence must be placed under `data/rgbd_dataset_freiburg1_xyz/`.
 
-At this stage, the project implements the full ORB vs SuperPoint + LightGlue comparison pipeline: timestamp synchronization, frame-pair generation across temporal gaps, RGB-D correspondence construction, PnP-RANSAC pose estimation, and comparison with ground truth.
+Create the Python environment and install the dependencies:
 
-The current metrics report matching statistics, valid RGB-D correspondence counts, PnP success and failure counts, inlier ratios, ground-truth motion magnitude, pose errors, and runtime for both methods.
+```bash
+python -m venv .venv
+.venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
-The next steps are to turn the numerical results into plots, add qualitative match visualizations, and test whether the conclusions hold on additional TUM RGB-D sequences.
+Run the full comparison:
+
+```bash
+make run-comparison
+```
+
+This evaluates ORB and SuperPoint + LightGlue on the frame gaps, estimates the relative poses, and writes a new timestamped folder under `outputs/`.
+
+Analyze an existing run:
+
+```bash
+make analyze OUTPUT_DIR=outputs/comparison_2026-06-18_12-48-30
+```
+
+This reads the raw pair-level results, computes the summary metrics, and regenerates the plots used in the README.

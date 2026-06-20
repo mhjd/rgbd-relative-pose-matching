@@ -1,0 +1,33 @@
+{
+  "created_at": "2026-06-18T12:48:30",
+  "sequence": "rgbd_dataset_freiburg1_xyz",
+  "frame_gaps": [
+    1,
+    2,
+    5,
+    10,
+    20,
+    50,
+    100
+  ],
+  "max_pairs_per_gap": null,
+  "lightglue_max_keypoints": 512,
+  "device": "mps",
+  "synchronized_frame_count": 798,
+  "pair_results_file": "pairs.jsonl",
+  "timings": {
+    "orb": {
+      "image_loading": 3.61,
+      "orb_extraction": 2.77,
+      "orb_matching": 2.75,
+      "depth_correspondences": 3.43
+    },
+    "lightglue": {
+      "image_loading": 4.92,
+      "superpoint_extraction": 55.26,
+      "lightglue_matching": 3553.84,
+      "depth_correspondences": 9.08
+    },
+    "total_wall_clock": 3643.53
+  }
+}
